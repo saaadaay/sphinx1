@@ -9,18 +9,21 @@
 """
 
 import argparse
+import copy
 import locale
 import multiprocessing
 import os
+import re
 import sys
 import traceback
-from typing import Any, IO, List
+from typing import Any, IO, List, Union
 
 from docutils.utils import SystemMessage
 
 import sphinx.locale
 from sphinx import __display_version__, package_dir
 from sphinx.application import Sphinx
+from sphinx.cmd.base import SphinxCommand
 from sphinx.errors import SphinxError
 from sphinx.locale import __
 from sphinx.util import Tee, format_exception_cut_frames, save_traceback
@@ -94,190 +97,216 @@ def jobs_argument(value: str) -> int:
             return jobs
 
 
-def get_parser() -> argparse.ArgumentParser:
+def exists_path(path: str) -> str:
+    """Validate that file path is a valid one."""
+    if not os.path.exists(path):
+        raise argparse.ArgumentTypeError("{0} does not exist".format(path))
+    return path
+
+
+def html_override(value: str) -> str:
+    return '.'.join(['html_context', value])
+
+
+class CSVAppendAction(argparse.Action):
+    """Split a CSV option and append it to a list."""
+
+    @staticmethod
+    def _decode(value: str) -> Union[str, int]:
+        """Attempt to evaluate the correct type."""
+        try:
+            return int(value)
+        except ValueError:
+            return value
+
+    def __call__(self, parser: argparse.ArgumentParser,
+                 namespace: argparse.Namespace, values: Any,
+                 option_string: Any = None) -> None:
+        try:
+            key, val = values.split('=', 1)
+        except ValueError:
+            parser.error(__(
+                '%s option argument must be in the form name=value' % option_string))
+
+        # ensure the value actually exists first
+        if not hasattr(namespace, self.dest):
+            setattr(namespace, self.dest, {})
+
+        items = copy.copy(getattr(namespace, self.dest))
+        items[key] = val
+        setattr(namespace, self.dest, items)
+
+
+class BuildCommand(SphinxCommand):
+    """Generate documentation from source files.
+
+    'sphinx build' generates documentation from the files in SOURCEDIR and places it
+    in OUTPUTDIR. It looks for 'conf.py' in SOURCEDIR for the configuration
+    settings.  The 'sphinx-quickstart' tool may be used to generate template files,
+    including 'conf.py'
+
+    'sphinx build' can create documentation in different formats. A format is
+    selected by specifying the builder name on the command line; it defaults to
+    HTML. Builders can also perform other tasks related to documentation
+    processing.
+
+    By default, everything that is outdated is built. Output only for selected
+    files can be built by specifying individual filenames.
+    """
+
+    @staticmethod
+    def _add_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+        parser.add_argument('sourcedir',
+                            help=__('path to documentation source files'))
+        parser.add_argument('outputdir',
+                            help=__('path to output directory'))
+        parser.add_argument('filenames', nargs='*', type=exists_path,
+                            help=__('a list of specific files to rebuild. Ignored '
+                                    'if -a is specified'))
+
+        group = parser.add_argument_group(__('general options'))
+        group.add_argument('-b', metavar='BUILDER', dest='builder',
+                           default='html',
+                           help=__('builder to use (default: html)'))
+        group.add_argument('-a', action='store_true', dest='force_all',
+                           help=__('write all files (default: only write new and '
+                                   'changed files)'))
+        group.add_argument('-E', action='store_true', dest='freshenv',
+                           help=__('don\'t use a saved environment, always read '
+                                   'all files'))
+        group.add_argument('-d', metavar='PATH', dest='doctreedir',
+                           help=__('path for the cached environment and doctree '
+                                   'files (default: OUTPUTDIR/.doctrees)'))
+        group.add_argument('-j', metavar='N', default=1, type=jobs_argument, dest='jobs',
+                           help=__('build in parallel with N processes where '
+                                   'possible (special value "auto" will set N to cpu-count)'))
+        group = parser.add_argument_group('build configuration options')
+        group.add_argument('-c', metavar='PATH', dest='confdir',
+                           help=__('path where configuration file (conf.py) is '
+                                   'located (default: same as SOURCEDIR)'))
+        group.add_argument('-C', action='store_true', dest='noconfig',
+                           help=__('use no config file at all, only -D options'))
+        group.add_argument('-D', metavar='setting=value', action=CSVAppendAction,
+                           dest='confoverrides', default={},
+                           help=__('override a setting in configuration file'))
+        group.add_argument('-A', metavar='name=value', action=CSVAppendAction,
+                           type=html_override, dest='confoverrides', default={},
+                           help=__('pass a value into HTML templates'))
+        group.add_argument('-t', metavar='TAG', action='append',
+                           dest='tags', default=[],
+                           help=__('define tag: include "only" blocks with TAG'))
+        group.add_argument('-n', action='store_true', dest='nitpicky',
+                           help=__('nit-picky mode, warn about all missing '
+                                   'references'))
+
+        group = parser.add_argument_group(__('console output options'))
+        group.add_argument('-v', action='count', dest='verbosity', default=0,
+                           help=__('increase verbosity (can be repeated)'))
+        group.add_argument('-q', action='store_true', dest='quiet',
+                           help=__('no output on stdout, just warnings on stderr'))
+        group.add_argument('-Q', action='store_true', dest='really_quiet',
+                           help=__('no output at all, not even warnings'))
+        group.add_argument('--color', action='store_const', const='yes',
+                           default='auto',
+                           help=__('do emit colored output (default: auto-detect)'))
+        group.add_argument('-N', '--no-color', dest='color', action='store_const',
+                           const='no',
+                           help=__('do not emit colored output (default: '
+                                   'auto-detect)'))
+        group.add_argument('-w', metavar='FILE', dest='warnfile',
+                           type=argparse.FileType('w'),
+                           help=__('write warnings (and errors) to given file'))
+        group.add_argument('-W', action='store_true', dest='warningiserror',
+                           help=__('turn warnings into errors'))
+        group.add_argument('--keep-going', action='store_true', dest='keep_going',
+                           help=__("With -W, keep going when getting warnings"))
+        group.add_argument('-T', action='store_true', dest='traceback',
+                           help=__('show full traceback on exception'))
+        group.add_argument('-P', action='store_true', dest='pdb',
+                           help=__('run Pdb on exception'))
+
+        return parser
+
+    @staticmethod
+    def _run(args: argparse.Namespace) -> int:
+        # TODO(stephenfin): Fold this into 'run' once we remove the old 'sphinx-build' binary
+
+        if args.noconfig:
+            args.confdir = None
+        elif not args.confdir:
+            args.confdir = args.sourcedir
+
+        if not args.doctreedir:
+            args.doctreedir = os.path.join(args.outputdir, '.doctrees')
+
+        if args.force_all and args.filenames:
+            raise argparse.ArgumentTypeError(__('cannot combine -a option and filenames'))
+
+        if args.color == 'no' or (args.color == 'auto' and not color_terminal()):
+            nocolor()
+
+        status = sys.stdout
+        warning = sys.stderr
+        error = sys.stderr
+
+        if args.quiet:
+            status = None
+
+        if args.really_quiet:
+            status = warning = None
+
+        if warning and args.warnfile:
+            warning = Tee(warning, args.warnfile)  # type: ignore
+            error = warning
+
+        if args.nitpicky:
+            args.confoverrides['nitpicky'] = True
+
+        app = None
+        try:
+            confdir = args.confdir or args.sourcedir
+            with patch_docutils(confdir), docutils_namespace():
+                app = Sphinx(args.sourcedir, args.confdir, args.outputdir,
+                             args.doctreedir, args.builder, args.confoverrides,
+                             status, warning, args.freshenv, args.warningiserror,
+                             args.tags, args.verbosity, args.jobs, args.keep_going)
+                app.build(args.force_all, args.filenames)
+                return app.statuscode
+        except (Exception, KeyboardInterrupt) as exc:
+            handle_exception(app, args, exc, error)
+            return 2
+
+    def add_parser(self, parser):
+        return self._add_parser(parser)
+
+    def run(self, args):
+        return self._run(args)
+
+
+def build_main(argv: List[str] = sys.argv[1:]) -> int:
+    """Sphinx build "main" command-line entry."""
+    desc = re.sub(r'(sphinx) (\w+)', r'\1-\2', BuildCommand.__doc__)
     parser = argparse.ArgumentParser(
-        usage='%(prog)s [OPTIONS] SOURCEDIR OUTPUTDIR [FILENAMES...]',
-        epilog=__('For more information, visit <http://sphinx-doc.org/>.'),
-        description=__("""
-Generate documentation from source files.
-
-sphinx-build generates documentation from the files in SOURCEDIR and places it
-in OUTPUTDIR. It looks for 'conf.py' in SOURCEDIR for the configuration
-settings.  The 'sphinx-quickstart' tool may be used to generate template files,
-including 'conf.py'
-
-sphinx-build can create documentation in different formats. A format is
-selected by specifying the builder name on the command line; it defaults to
-HTML. Builders can also perform other tasks related to documentation
-processing.
-
-By default, everything that is outdated is built. Output only for selected
-files can be built by specifying individual filenames.
-"""))
+        usage='usage: %(prog)s [OPTIONS] SOURCEDIR OUTPUTDIR [FILENAMES...]',
+        epilog='For more information, visit <http://sphinx-doc.org/>.',
+        description=desc)
 
     parser.add_argument('--version', action='version', dest='show_version',
                         version='%%(prog)s %s' % __display_version__)
+    parser = BuildCommand._add_parser(parser)
 
-    parser.add_argument('sourcedir',
-                        help=__('path to documentation source files'))
-    parser.add_argument('outputdir',
-                        help=__('path to output directory'))
-    parser.add_argument('filenames', nargs='*',
-                        help=__('a list of specific files to rebuild. Ignored '
-                                'if -a is specified'))
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as err:
+        return err.code
 
-    group = parser.add_argument_group(__('general options'))
-    group.add_argument('-b', metavar='BUILDER', dest='builder',
-                       default='html',
-                       help=__('builder to use (default: html)'))
-    group.add_argument('-a', action='store_true', dest='force_all',
-                       help=__('write all files (default: only write new and '
-                               'changed files)'))
-    group.add_argument('-E', action='store_true', dest='freshenv',
-                       help=__('don\'t use a saved environment, always read '
-                               'all files'))
-    group.add_argument('-d', metavar='PATH', dest='doctreedir',
-                       help=__('path for the cached environment and doctree '
-                               'files (default: OUTPUTDIR/.doctrees)'))
-    group.add_argument('-j', metavar='N', default=1, type=jobs_argument, dest='jobs',
-                       help=__('build in parallel with N processes where '
-                               'possible (special value "auto" will set N to cpu-count)'))
-    group = parser.add_argument_group('build configuration options')
-    group.add_argument('-c', metavar='PATH', dest='confdir',
-                       help=__('path where configuration file (conf.py) is '
-                               'located (default: same as SOURCEDIR)'))
-    group.add_argument('-C', action='store_true', dest='noconfig',
-                       help=__('use no config file at all, only -D options'))
-    group.add_argument('-D', metavar='setting=value', action='append',
-                       dest='define', default=[],
-                       help=__('override a setting in configuration file'))
-    group.add_argument('-A', metavar='name=value', action='append',
-                       dest='htmldefine', default=[],
-                       help=__('pass a value into HTML templates'))
-    group.add_argument('-t', metavar='TAG', action='append',
-                       dest='tags', default=[],
-                       help=__('define tag: include "only" blocks with TAG'))
-    group.add_argument('-n', action='store_true', dest='nitpicky',
-                       help=__('nit-picky mode, warn about all missing '
-                               'references'))
-
-    group = parser.add_argument_group(__('console output options'))
-    group.add_argument('-v', action='count', dest='verbosity', default=0,
-                       help=__('increase verbosity (can be repeated)'))
-    group.add_argument('-q', action='store_true', dest='quiet',
-                       help=__('no output on stdout, just warnings on stderr'))
-    group.add_argument('-Q', action='store_true', dest='really_quiet',
-                       help=__('no output at all, not even warnings'))
-    group.add_argument('--color', action='store_const', const='yes',
-                       default='auto',
-                       help=__('do emit colored output (default: auto-detect)'))
-    group.add_argument('-N', '--no-color', dest='color', action='store_const',
-                       const='no',
-                       help=__('do not emit colored output (default: '
-                               'auto-detect)'))
-    group.add_argument('-w', metavar='FILE', dest='warnfile',
-                       help=__('write warnings (and errors) to given file'))
-    group.add_argument('-W', action='store_true', dest='warningiserror',
-                       help=__('turn warnings into errors'))
-    group.add_argument('--keep-going', action='store_true', dest='keep_going',
-                       help=__("With -W, keep going when getting warnings"))
-    group.add_argument('-T', action='store_true', dest='traceback',
-                       help=__('show full traceback on exception'))
-    group.add_argument('-P', action='store_true', dest='pdb',
-                       help=__('run Pdb on exception'))
-
-    return parser
+    return BuildCommand._run(args)
 
 
 def make_main(argv: List[str] = sys.argv[1:]) -> int:
     """Sphinx build "make mode" entry."""
     from sphinx.cmd import make_mode
     return make_mode.run_make_mode(argv[1:])
-
-
-def build_main(argv: List[str] = sys.argv[1:]) -> int:
-    """Sphinx build "main" command-line entry."""
-
-    parser = get_parser()
-    args = parser.parse_args(argv)
-
-    if args.noconfig:
-        args.confdir = None
-    elif not args.confdir:
-        args.confdir = args.sourcedir
-
-    if not args.doctreedir:
-        args.doctreedir = os.path.join(args.outputdir, '.doctrees')
-
-    # handle remaining filename arguments
-    filenames = args.filenames
-    missing_files = []
-    for filename in filenames:
-        if not os.path.isfile(filename):
-            missing_files.append(filename)
-    if missing_files:
-        parser.error(__('cannot find files %r') % missing_files)
-
-    if args.force_all and filenames:
-        parser.error(__('cannot combine -a option and filenames'))
-
-    if args.color == 'no' or (args.color == 'auto' and not color_terminal()):
-        nocolor()
-
-    status = sys.stdout
-    warning = sys.stderr
-    error = sys.stderr
-
-    if args.quiet:
-        status = None
-
-    if args.really_quiet:
-        status = warning = None
-
-    if warning and args.warnfile:
-        try:
-            warnfp = open(args.warnfile, 'w')
-        except Exception as exc:
-            parser.error(__('cannot open warning file %r: %s') % (
-                args.warnfile, exc))
-        warning = Tee(warning, warnfp)  # type: ignore
-        error = warning
-
-    confoverrides = {}
-    for val in args.define:
-        try:
-            key, val = val.split('=', 1)
-        except ValueError:
-            parser.error(__('-D option argument must be in the form name=value'))
-        confoverrides[key] = val
-
-    for val in args.htmldefine:
-        try:
-            key, val = val.split('=')
-        except ValueError:
-            parser.error(__('-A option argument must be in the form name=value'))
-        try:
-            val = int(val)
-        except ValueError:
-            pass
-        confoverrides['html_context.%s' % key] = val
-
-    if args.nitpicky:
-        confoverrides['nitpicky'] = True
-
-    app = None
-    try:
-        confdir = args.confdir or args.sourcedir
-        with patch_docutils(confdir), docutils_namespace():
-            app = Sphinx(args.sourcedir, args.confdir, args.outputdir,
-                         args.doctreedir, args.builder, confoverrides, status,
-                         warning, args.freshenv, args.warningiserror,
-                         args.tags, args.verbosity, args.jobs, args.keep_going)
-            app.build(args.force_all, filenames)
-            return app.statuscode
-    except (Exception, KeyboardInterrupt) as exc:
-        handle_exception(app, args, exc, error)
-        return 2
 
 
 def main(argv: List[str] = sys.argv[1:]) -> int:

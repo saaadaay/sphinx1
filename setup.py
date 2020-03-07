@@ -232,6 +232,11 @@ setup(
             'sphinx-quickstart = sphinx.cmd.quickstart:main',
             'sphinx-apidoc = sphinx.ext.apidoc:main',
             'sphinx-autogen = sphinx.ext.autosummary.generate:main',
+            'sphinx = sphinx.cmd.base:main',
+        ],
+        'sphinx.commands': [
+            'init = sphinx.cmd.quickstart:InitCommand',
+            'build = sphinx.cmd.build:BuildCommand',
         ],
         'distutils.commands': [
             'build_sphinx = sphinx.setup_command:BuildDoc',
