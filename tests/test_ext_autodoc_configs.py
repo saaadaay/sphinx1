@@ -746,7 +746,7 @@ def test_autodoc_typehints_signature(app):
         '   :module: target.typehints',
         '',
         '',
-        '.. py:class:: NewComment(i: int)',
+        '.. py:class:: NewComment(i: ~typing.Optional[int])',
         '   :module: target.typehints',
         '',
         '',
@@ -970,6 +970,11 @@ def test_autodoc_typehints_description(app):
             '   Return type:\n'
             '      *Tuple*[int, int]\n'
             in context)
+    assert ('class target.typehints.NewComment(i)\n'
+            '\n'
+            '   Parameters:\n'
+            '      **i** (*Optional**[**int**]*) --\n'
+            in context)
 
     # Overloads still get displayed in the signature
     assert ('target.overload.sum(x: int, y: int = 0) -> int\n'
@@ -977,6 +982,29 @@ def test_autodoc_typehints_description(app):
             'target.overload.sum(x: str, y: str = None) -> str\n'
             '\n'
             '   docstring\n'
+            in context)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7),
+                    reason="requires python3.7 or higher")
+@pytest.mark.sphinx('text', testroot='ext-autodoc',
+                    confoverrides={'autodoc_typehints': "description"})
+def test_autodoc_lazy_typehints_description(app):
+    app.build()
+    context = (app.outdir / 'index_py37.txt').read_text(encoding='utf8')
+    assert ('class target.typehints_lazy.LazyInit(x)\n'
+            '\n'
+            '   I am lazy!\n'
+            '\n'
+            '   Parameters:\n'
+            '      **x** (*Optional**[**int**]*) -- this is x\n'
+            in context)
+    assert ('class target.typehints_lazy.LazyGeneric(x)\n'
+            '\n'
+            '   Generic docstring ;)\n'
+            '\n'
+            '   Parameters:\n'
+            '      **x** (*Optional**[**T**]*) -- maybe also generic\n'
             in context)
 
 
@@ -1486,7 +1514,7 @@ def test_autodoc_typehints_format_fully_qualified(app):
         '   :module: target.typehints',
         '',
         '',
-        '.. py:class:: NewComment(i: int)',
+        '.. py:class:: NewComment(i: typing.Optional[int])',
         '   :module: target.typehints',
         '',
         '',

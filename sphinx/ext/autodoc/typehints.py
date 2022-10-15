@@ -1,5 +1,6 @@
 """Generating content for autodoc using typehints"""
 
+import inspect
 import re
 from collections import OrderedDict
 from typing import Any, Dict, Iterable, Set, cast
@@ -10,11 +11,10 @@ from docutils.nodes import Element
 import sphinx
 from sphinx import addnodes
 from sphinx.application import Sphinx
-from sphinx.util import inspect, typing
+from sphinx.util import typing
 
 
-def record_typehints(app: Sphinx, objtype: str, name: str, obj: Any,
-                     options: Dict, args: str, retann: str) -> None:
+def record_typehints(app: Sphinx, obj: Any, name: str, sig: inspect.Signature) -> None:
     """Record type hints to env object."""
     if app.config.autodoc_typehints_format == 'short':
         mode = 'smart'
@@ -25,7 +25,6 @@ def record_typehints(app: Sphinx, objtype: str, name: str, obj: Any,
         if callable(obj):
             annotations = app.env.temp_data.setdefault('annotations', {})
             annotation = annotations.setdefault(name, OrderedDict())
-            sig = inspect.signature(obj, type_aliases=app.config.autodoc_type_aliases)
             for param in sig.parameters.values():
                 if param.annotation is not param.empty:
                     annotation[param.name] = typing.stringify(param.annotation, mode)
@@ -203,7 +202,7 @@ def augment_descriptions_with_types(
 
 
 def setup(app: Sphinx) -> Dict[str, Any]:
-    app.connect('autodoc-process-signature', record_typehints)
+    app.connect('autodoc-after-inspection', record_typehints)
     app.connect('object-description-transform', merge_typehints)
 
     return {
