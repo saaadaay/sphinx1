@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 py_sig_re = re.compile(
     r'''^ ([\w.]*\.)?            # class name(s)
           (\w+)  \s*             # thing name
-          (?: \[\s*(.*)\s*])?    # optional: type parameters list
+          (?: \[\s*(.*?)\s*\])?  # optional: type parameters list
           (?: \(\s*(.*)\s*\)     # optional: arguments
            (?:\s* -> \s* (.*))?  #           return annotation
           )? $                   # and nothing more
