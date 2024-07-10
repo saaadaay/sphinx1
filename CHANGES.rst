@@ -94,6 +94,9 @@ Bugs fixed
 * #11961: Omit anchor references from document title entries in the search index,
   removing duplication of search results.
   Patch by James Addison.
+* #12451: Add further preconditions before copyright notice year substitution
+  occurs.
+  Patch by James Addison.
 
 Testing
 -------
