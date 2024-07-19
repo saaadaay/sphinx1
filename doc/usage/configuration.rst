@@ -168,6 +168,16 @@ Project information
 General configuration
 =====================
 
+   .. versionchanged:: 7.2
+
+      Make ``toc``, ``i18n`` and ``index`` warning types cover all relative
+      warnings.
+
+      Added ``i18n.babel``, ``i18n.not_readable``, ``i18n.not_writeable``,
+      ``toc.duplicated``, ``toc.glob``, ``toc.no_title``, ``toc.no_included``.
+
+      Towards :doc:`extdev/index:ext-metadata`, Added TODO.
+
 .. confval:: needs_sphinx
    :type: :code-py:`str`
    :default: :code-py:`''`
@@ -1358,7 +1368,10 @@ Options for warning control
    * ``download.not_readable``
    * ``epub.unknown_project_files``
    * ``epub.duplicated_toc_entry``
+   * ``i18n.babel``
    * ``i18n.inconsistent_references``
+   * ``i18n.not_readable``
+   * ``i18n.not_writeable``
    * ``index``
    * ``image.not_readable``
    * ``ref.term``
@@ -1372,8 +1385,11 @@ Options for warning control
    * ``ref.python``
    * ``misc.highlighting_failure``
    * ``toc.circular``
+   * ``toc.duplicated``
    * ``toc.excluded``
+   * ``toc.glob``
    * ``toc.no_title``
+   * ``toc.not_included``
    * ``toc.not_readable``
    * ``toc.secnum``
 
@@ -1389,6 +1405,9 @@ Options for warning control
 
    You can choose from these types.  You can also give only the first
    component to exclude all warnings attached to it.
+
+   It's recommended to use ``ext_*`` type for community extensions.
+   See also at :class:`sphinx.util.logging.SphinxLoggerAdapter`.
 
    .. versionadded:: 1.4
 
