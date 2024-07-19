@@ -8,6 +8,9 @@ Bugs fixed
   Patch by Adam Turner.
 * #12620: Ensure that old-style object description options are respected.
   Patch by Adam Turner.
+* #12587: Do not warn when potential ambiguity detected during Intersphinx
+  resolution occurs due to duplicate targets that differ case-insensitively.
+  Patch by James Addison.
 
 Release 7.4.6 (released Jul 18, 2024)
 =====================================
