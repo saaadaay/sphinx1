@@ -79,6 +79,40 @@ describe('Basic html theme search', function() {
       expect(Search.performTermsSearch(searchterms, excluded, terms, titleterms)).toEqual(hits);
     });
 
+    it('should partially-match within "possible" when in term index', function() {
+      eval(loadFixture("partial/searchindex.js"));
+
+      [_searchQuery, searchterms, excluded, ..._remainingItems] = Search._parseQuery('ossibl');
+      terms = Search._index.terms;
+      titleterms = Search._index.titleterms;
+
+      hits = [[
+        "index",
+        "sphinx_utils module",
+        "",
+        null,
+        2,
+        "index.rst"
+      ]];
+      expect(Search.performTermsSearch(searchterms, excluded, terms, titleterms)).toEqual(hits);
+    });
+
+    it('should suffix-match on "HTML" in term index', function() {
+      eval(loadFixture("partial/searchindex.js"));
+
+      [_searchQuery, searchterms, excluded, ..._remainingItems] = Search._parseQuery('TML');
+
+      hits = [[
+        "index",
+        "sphinx_utils module",
+        "",
+        null,
+        2,
+        "index.rst"
+      ]];
+      expect(Search.performTermsSearch(searchterms, excluded)).toEqual(hits);
+    });
+
   });
 
   describe('aggregation of search results', function() {
@@ -159,6 +193,25 @@ describe('Basic html theme search', function() {
       results = Search._performSearch(...searchParameters);
 
       checkRanking(expectedRanking, results);
+    });
+
+  });
+
+  describe('error and edge-case handling', function() {
+
+    it('should handle queries with no matches', function() {
+      eval(loadFixture("partial/searchindex.js"));
+
+      [_searchQuery, searchterms, excluded, ..._remainingItems] = Search._parseQuery('obabl');
+      expect(Search.performTermsSearch(searchterms, excluded)).toEqual([]);
+    });
+
+    it('should not match a mistyped "HTML" query in term index', function() {
+      eval(loadFixture("partial/searchindex.js"));
+
+      [_searchQuery, searchterms, excluded, ..._remainingItems] = Search._parseQuery('HTMZ');
+
+      expect(Search.performTermsSearch(searchterms, excluded)).toEqual([]);
     });
 
   });

@@ -491,6 +491,7 @@ const Search = {
   performTermsSearch: (searchTerms, excludedTerms) => {
     // prepare search
     const terms = Search._index.terms;
+    const termsNgrams = Search._index.termsngrams;
     const titleTerms = Search._index.titleterms;
     const filenames = Search._index.filenames;
     const docNames = Search._index.docnames;
@@ -510,7 +511,25 @@ const Search = {
       if (word.length > 2) {
         const escapedWord = _escapeRegExp(word);
         if (!terms.hasOwnProperty(word)) {
-          Object.keys(terms).forEach((term) => {
+          const termOffsets = Object.keys(terms);
+          const ngramTerms = function (ngram) {
+            let [node, path] = [termsNgrams, ""];
+            for (const step of ngram) {
+              if ((path += step) in node) [node, path] = [node[path], ""];
+            }
+            if (path || !node) return [];
+            if (node.length === undefined) node = [node];
+            return node;
+          };
+
+          let candidateTerms = ngramTerms(word.substring(0, 3));
+          for (let end = word.length; candidateTerms.size && end > 3; end -= 2) {
+            const subsequentTerms = new Set(ngramTerms(word.substring(end - 3, end)));
+            candidateTerms = candidateTerms.filter(term => subsequentTerms.has(term))
+          }
+
+          candidateTerms.forEach((termOffset) => {
+            const term = termOffsets[termOffset];
             if (term.match(escapedWord))
               arr.push({ files: terms[term], score: Scorer.partialTerm });
           });

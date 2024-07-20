@@ -1,6 +1,14 @@
 Release 7.4.7 (released Jul 20, 2024)
 =====================================
 
+Features added
+--------------
+
+* #12045: Use an index-directed ngram search for partial-string matches.
+  Results are unaffected compared to the previous brute-force approach, but
+  performance should be much more consistent (especially for large datasets).
+  Patch by James Addison.
+
 Bugs fixed
 ----------
 
