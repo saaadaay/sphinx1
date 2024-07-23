@@ -94,6 +94,7 @@ lint = [
 ]
 test = [
     "pytest>=8.0",
+    "pytest-xdist==3.5.0",
     "defusedxml>=0.7.1", # for secure XML/HTML parsing
     "cython>=3.0",
     "setuptools>=70.0",  # for Cython compilation
@@ -291,6 +292,7 @@ disallow_untyped_defs = false
 minversion = "6.0"
 addopts = [
     "-ra",
+    "-p no:xdist",  # disable xdist for now
     "--import-mode=prepend",
 #    "--pythonwarnings=error",
     "--strict-config",
