@@ -503,6 +503,8 @@ Features added
   to annotate the return type of their ``setup`` function.
   Patch by Chris Sewell.
 
+* #11778: Add the possibility to use custom Project class.
+
 Bugs fixed
 ----------
 
