@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import contextlib
 import os
-from pathlib import Path
 import pickle
 import sys
 from collections import deque
@@ -42,6 +41,8 @@ from sphinx.util.osutil import ensuredir, relpath
 from sphinx.util.tags import Tags
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from docutils import nodes
     from docutils.nodes import Element, Node
     from docutils.parsers import Parser
@@ -453,12 +454,17 @@ class Sphinx:
 
     # event interface
     @overload
-    def connect(self, event: Literal['include-read'], callback: Callable[[Sphinx, Path, str, list[str]], None], priority: int = 500) -> int:
+    def connect(
+        self,
+        event: Literal['include-read'],
+        callback: Callable[[Sphinx, Path, str, list[str]], None],
+        priority: int = 500
+    ) -> int:
         ...
 
     @overload
     def connect(self, event: str, callback: Callable, priority: int = 500) -> int: ...
-    
+
     def connect(self, event: str, callback: Callable, priority: int = 500) -> int:
         """Register *callback* to be called when *event* is emitted.
 

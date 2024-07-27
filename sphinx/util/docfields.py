@@ -5,7 +5,6 @@ be domain-specifically transformed to a more appealing presentation.
 """
 from __future__ import annotations
 
-from collections.abc import Sequence
 import contextlib
 from typing import TYPE_CHECKING, Any, cast
 
@@ -18,6 +17,8 @@ from sphinx.util import logging
 from sphinx.util.nodes import get_node_line
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from docutils.parsers.rst.states import Inliner
 
     from sphinx.directives import ObjectDescription
