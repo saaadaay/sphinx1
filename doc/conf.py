@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import re
 import time
-from docutils import nodes
+
 from sphinx import __display_version__
 from sphinx.environment import BuildEnvironment
 
@@ -243,8 +242,15 @@ nitpick_ignore = {
 
 # -- Extension interface -------------------------------------------------------
 
+from typing import TYPE_CHECKING  # NoQA: E402
+
 from sphinx import addnodes  # NoQA: E402
 from sphinx.application import Sphinx  # NoQA: E402, TCH001
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from docutils import nodes
 
 _event_sig_re = re.compile(r'([a-zA-Z-]+)\s*\((.*)\)')
 
@@ -264,7 +270,9 @@ def parse_event(_env: BuildEnvironment, sig: str, signode: nodes.Element) -> str
     return name
 
 
-def linkify_issues_in_changelog(_app: Sphinx, _path: Path, docname: str, source: list[str]) -> None:
+def linkify_issues_in_changelog(
+    _app: Sphinx, _path: Path, docname: str, source: list[str]
+) -> None:
     """Linkify issue references like #123 in changelog to GitHub."""
     if docname == 'changes':
 
