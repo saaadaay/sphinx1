@@ -5,6 +5,7 @@ be domain-specifically transformed to a more appealing presentation.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 import contextlib
 from typing import TYPE_CHECKING, Any, cast
 
@@ -57,7 +58,7 @@ class Field:
     def __init__(
         self,
         name: str,
-        names: tuple[str, ...] = (),
+        names: Sequence[str] = (),
         label: str = '',
         has_arg: bool = True,
         rolename: str = '',
@@ -155,7 +156,7 @@ class GroupedField(Field):
     is_grouped = True
     list_type = nodes.bullet_list
 
-    def __init__(self, name: str, names: tuple[str, ...] = (), label: str = '',
+    def __init__(self, name: str, names: Sequence[str] = (), label: str = '',
                  rolename: str = '', can_collapse: bool = False) -> None:
         super().__init__(name, names, label, True, rolename)
         self.can_collapse = can_collapse

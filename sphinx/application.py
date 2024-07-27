@@ -7,13 +7,14 @@ from __future__ import annotations
 
 import contextlib
 import os
+from pathlib import Path
 import pickle
 import sys
 from collections import deque
 from collections.abc import Callable, Collection, Sequence  # NoQA: TCH003
 from io import StringIO
 from os import path
-from typing import IO, TYPE_CHECKING, Any, Literal
+from typing import IO, TYPE_CHECKING, Any, Literal, overload
 
 from docutils.nodes import TextElement  # NoQA: TCH002
 from docutils.parsers.rst import Directive, roles
@@ -451,6 +452,13 @@ class Sphinx:
             raise VersionRequirementError(req)
 
     # event interface
+    @overload
+    def connect(self, event: Literal['include-read'], callback: Callable[[Sphinx, Path, str, list[str]], None], priority: int = 500) -> int:
+        ...
+
+    @overload
+    def connect(self, event: str, callback: Callable, priority: int = 500) -> int: ...
+    
     def connect(self, event: str, callback: Callable, priority: int = 500) -> int:
         """Register *callback* to be called when *event* is emitted.
 

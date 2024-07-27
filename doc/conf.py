@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 import re
 import time
-
+from docutils import nodes
 from sphinx import __display_version__
+from sphinx.environment import BuildEnvironment
 
 os.environ['SPHINX_AUTODOC_RELOAD_MODULES'] = '1'
 
@@ -247,7 +249,7 @@ from sphinx.application import Sphinx  # NoQA: E402, TCH001
 _event_sig_re = re.compile(r'([a-zA-Z-]+)\s*\((.*)\)')
 
 
-def parse_event(env, sig, signode):
+def parse_event(_env: BuildEnvironment, sig: str, signode: nodes.Element) -> str:
     m = _event_sig_re.match(sig)
     if m is None:
         signode += addnodes.desc_name(sig, sig)
@@ -262,11 +264,11 @@ def parse_event(env, sig, signode):
     return name
 
 
-def linkify_issues_in_changelog(app, path, docname, source):
+def linkify_issues_in_changelog(_app: Sphinx, _path: Path, docname: str, source: list[str]) -> None:
     """Linkify issue references like #123 in changelog to GitHub."""
     if docname == 'changes':
 
-        def linkify(match):
+        def linkify(match: re.Match[str]) -> str:
             url = 'https://github.com/sphinx-doc/sphinx/issues/' + match[1]
             return f'`{match[0]} <{url}>`_'
 
