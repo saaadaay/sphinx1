@@ -463,7 +463,8 @@ class Sphinx:
         ...
 
     @overload
-    def connect(self, event: str, callback: Callable, priority: int = 500) -> int: ...
+    def connect(self, event: str, callback: Callable, priority: int = 500) -> int:
+        ...
 
     def connect(self, event: str, callback: Callable, priority: int = 500) -> int:
         """Register *callback* to be called when *event* is emitted.
